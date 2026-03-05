@@ -1,34 +1,239 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>SafeCam Dashboard</title>
+    <title>SafeCam Dashboard</title>
 
-<style>
+    <style>
 
-body{
-font-family:Arial;
-text-align:center;
-background:#f4f4f4;
-}
+        /* Page styling */
+        body{
+            font-family: Arial, sans-serif;
+            background:#f2f2f2;
+            margin:0;
+            padding:0;
+            text-align:center;
+        }
 
-img{
-width:300px;
-margin:10px;
-border-radius:10px;
-box-shadow:0px 0px 10px rgba(0,0,0,0.2);
-}
+        h1{
+            margin-top:20px;
+        }
 
-</style>
+        /* Gallery grid layout (WhatsApp-like) */
+        #gallery{
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+            gap:20px;
+            padding:30px;
+        }
+
+        /* Each photo container */
+        .photo-card{
+            background:white;
+            border-radius:12px;
+            padding:10px;
+            box-shadow:0px 3px 12px rgba(0,0,0,0.2);
+        }
+
+        /* Image styling */
+        .photo-card img{
+            width:100%;
+            border-radius:8px;
+        }
+
+        /* Time text */
+        .time{
+            font-size:13px;
+            color:#555;
+            margin-top:5px;
+        }
+
+        /* Delete button */
+        .delete-btn{
+            margin-top:8px;
+            padding:6px 12px;
+            background:red;
+            border:none;
+            color:white;
+            border-radius:5px;
+            cursor:pointer;
+        }
+
+        .delete-btn:hover{
+            background:#cc0000;
+        }
+
+    </style>
 
 </head>
 
 <body>
 
-<h1>SafeCam Evidence Dashboard</h1>
+<h1>SafeCam Dashboard</h1>
+<p>Captured Emergency Photos</p>
 
+<!-- Photo gallery container -->
 <div id="gallery"></div>
 
-<script type="module" src="js/upload.js"></script>
+
+<script type="module">
+
+/* Import Firebase config (contains app and database connection) */
+import { app, db } from "./js/firebase-config.js";
+
+/* Import Firebase Authentication functions */
+import { getAuth, onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+/* Import Firestore database functions */
+import { collection, getDocs, query, where, doc, deleteDoc }
+from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+
+/* Get gallery element */
+const gallery = document.getElementById("gallery");
+
+/* Initialize Firebase Authentication */
+const auth = getAuth(app);
+
+
+/*
+    Wait until Firebase confirms if a user is logged in
+*/
+onAuthStateChanged(auth, async (user)=>{
+
+    /* If no user logged in */
+    if(!user){
+        gallery.innerHTML = "<p>Please login to view your captured images.</p>";
+        return;
+    }
+
+    try{
+
+        /*
+        Query Firestore:
+        Only fetch images belonging to the logged-in user
+        */
+        const q = query(
+            collection(db,"captures"),
+            where("userId","==",user.uid)
+        );
+
+        /* Execute query */
+        const querySnapshot = await getDocs(q);
+
+        let images = [];
+
+        /* Convert Firestore documents into array */
+        querySnapshot.forEach((docItem)=>{
+
+            const data = docItem.data();
+
+            data.id = docItem.id;
+
+            images.push(data);
+
+        });
+
+        /* Sort images by latest capture time */
+        images.sort((a,b)=> new Date(b.time) - new Date(a.time));
+
+
+        /* If no images found */
+        if(images.length === 0){
+            gallery.innerHTML =
+            "<p>No images captured yet. Activate emergency mode first.</p>";
+            return;
+        }
+
+
+        /*
+        Display images in gallery
+        */
+        images.forEach((data)=>{
+
+            /* Create container for each photo */
+            const container = document.createElement("div");
+            container.classList.add("photo-card");
+
+
+            /* Create image element */
+            const img = document.createElement("img");
+            img.src = data.image;
+
+
+            /* Show capture time */
+            const time = document.createElement("p");
+            time.classList.add("time");
+            time.innerText =
+            "Captured: " + new Date(data.time).toLocaleString();
+
+
+            /*
+            Delete Button
+            Only the owner can delete due to Firestore security rules
+            */
+            const deleteBtn = document.createElement("button");
+            deleteBtn.innerText = "Delete";
+            deleteBtn.classList.add("delete-btn");
+
+
+            /*
+            Delete photo when button clicked
+            */
+            deleteBtn.onclick = async ()=>{
+
+                const confirmDelete = confirm("Delete this photo?");
+
+                if(!confirmDelete) return;
+
+                try{
+
+                    /* Delete document from Firestore */
+                    await deleteDoc(doc(db,"captures",data.id));
+
+                    /* Remove photo from page */
+                    container.remove();
+
+                    console.log("Photo deleted successfully");
+
+                }
+                catch(error){
+
+                    console.error("Delete error:", error);
+
+                    alert("Delete failed: "+error.message);
+
+                }
+
+            };
+
+
+            /* Add elements into container */
+            container.appendChild(img);
+            container.appendChild(time);
+            container.appendChild(deleteBtn);
+
+            /* Add container into gallery */
+            gallery.appendChild(container);
+
+        });
+
+
+    }
+    catch(error){
+
+        console.error("Error loading images:",error);
+
+        gallery.innerHTML =
+        "<p>Error loading images: "+error.message+"</p>";
+
+    }
+
+});
+
+</script>
 
 </body>
+
 </html>

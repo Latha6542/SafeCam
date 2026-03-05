@@ -1,3 +1,6 @@
+import { doc, deleteDoc }
+from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
 // Import Firebase authentication
 import { getAuth, onAuthStateChanged }
 from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
@@ -38,7 +41,7 @@ onAuthStateChanged(auth, async (user)=>{
         querySnapshot.forEach((doc)=>{
 
             const data = doc.data();
-            console.log("Document data:", data);
+            data.id = doc.id;
 
             images.push(data);
 
@@ -70,8 +73,21 @@ onAuthStateChanged(auth, async (user)=>{
             const time = document.createElement("p");
             time.innerText = "Captured: " + new Date(data.time).toLocaleString();
 
+             const deleteBtn = document.createElement("button");
+             deleteBtn.innerText = "Delete";
+
+             deleteBtn.onclick = async () => {
+
+        await deleteDoc(doc(db,"captures",data.id));
+
+        container.remove();
+
+    };
+
+
             container.appendChild(img);
             container.appendChild(time);
+            container.appendChild(deleteBtn);
 
             gallery.appendChild(container);
 
