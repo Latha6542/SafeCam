@@ -7,12 +7,18 @@ body{
 h1{
     color:#333;
 }
+#loginBtn{
+    background-color: blue;
+    color:white;
+}
+#emergencyBtn{
+    background-color: red;
+    color:white;
+}
 
 button{
     padding:15px 30px;
     font-size:18px;
-    background:red;
-    color:white;
     border:none;
     border-radius:8px;
     cursor:pointer;
